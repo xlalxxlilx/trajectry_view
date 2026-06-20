@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASE Trajectory Viewer (Pyodide)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    #header {
+      background: #161b22;
+      border-bottom: 1px solid #21262d;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    #header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #58a6ff;
+      white-space: nowrap;
+    }
+
+    #upload-btn {
+      background: #21262d;
+      color: #58a6ff;
+      border: 1px solid #30363d;
+      padding: 5px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    #upload-btn:hover { background: #30363d; }
+
+    #file-info {
+      font-size: 12px;
+      color: #8b949e;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #loading  { display: none; font-size: 12px; color: #e3b341; }
+    #error-msg { display: none; font-size: 12px; color: #f85149; }
+
+    .hdr-toggle {
+      background: none;
+      border: 1px solid #30363d;
+      color: #8b949e;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .hdr-toggle.on {
+      border-color: #58a6ff;
+      color: #58a6ff;
+      background: #1f2d3d;
+    }
+
+    #file-input { display: none; }
+
+    /* ── Main view ── */
+    #main {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #viewport {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    #viewport canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Drop overlay */
+    #drop-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      pointer-events: none;
+      color: #30363d;
+    }
+    #drop-overlay .icon  { font-size: 72px; }
+    #drop-overlay .title { font-size: 20px; color: #484f58; }
+    #drop-overlay .hint  { font-size: 13px; }
+
+    body.drag-over #viewport::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 3px dashed #58a6ff;
+      pointer-events: none;
+      border-radius: 4px;
+    }
+
+    /* Frame / energy overlays */
+    .hud {
+      position: absolute;
+      background: rgba(13, 17, 23, 0.75);
+      backdrop-filter: blur(4px);
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      font-family: 'Consolas', monospace;
+      font-size: 12px;
+      padding: 5px 10px;
+      display: none;
+    }
+    #frame-hud   { top: 12px; right: 12px; color: #8b949e; }
+    #energy-hud  { top: 12px; left: 12px;  color: #56d364; }
+    #force-hud   { top: 44px; left: 12px;  color: #ffa657; }
+
+    /* ── Controls bar ── */
+    #controls {
+      background: #161b22;
+      border-top: 1px solid #21262d;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .ctrl-btn {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #8b949e;
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
+      user-select: none;
+    }
+    .ctrl-btn:hover:not(:disabled) { background: #30363d; color: #c9d1d9; }
+    .ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .ctrl-btn.playing  { background: #1f2d3d; color: #58a6ff; border-color: #58a6ff; }
+
+    /* Slider */
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      background: #21262d;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #58a6ff;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    input[type=range]:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    #frame-slider { flex: 1; }
+
+    #frame-counter {
+      font-family: 'Consolas', monospace;
+      font-size: 12px;
+      color: #6e7681;
+      min-width: 72px;
+      text-align: right;
+    }
+
+    .speed-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #484f58;
+      flex-shrink: 0;
+    }
+    #speed-slider { width: 70px; }
+    #speed-val    { min-width: 36px; color: #6e7681; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div id="header">
+    <h1>⚗️ ASE Trajectory Viewer (Pyodide)</h1>
+    <input type="file" id="file-input"
+      accept=".traj,.xyz,.extxyz,.cif,.vasp,.out,.log,POSCAR,CONTCAR">
+    <button id="upload-btn">📂 ファイルを開く</button>
+    <span id="file-info">ファイルをドラッグ&ドロップ、またはボタンで選択 (.traj / .xyz / .extxyz / .cif など)。初回はPyodideのロードに少し時間がかかります</span>
+    <span id="loading">⏳ 読み込み中...</span>
+    <span id="error-msg"></span>
+    <button class="hdr-toggle on"  id="btn-bonds">結合</button>
+    <button class="hdr-toggle on"  id="btn-cell">ユニットセル</button>
+    <button class="hdr-toggle"     id="btn-wrap" title="周期境界でセル内にラップ">Wrap</button>
+    <button class="hdr-toggle"     id="btn-cam">📷 カメラリセット</button>
+  </div>
+
+  <!-- 3-D viewport -->
+  <div id="main">
+    <div id="viewport">
+      <div id="drop-overlay">
+        <div class="icon">🔬</div>
+        <div class="title">トラジェクトリファイルをここにドロップ</div>
+        <div class="hint">.traj &nbsp;|&nbsp; .xyz / .extxyz &nbsp;|&nbsp; .cif &nbsp;|&nbsp; POSCAR / VASP など ASE 対応形式</div>
+      </div>
+      <div id="frame-hud"  class="hud"></div>
+      <div id="energy-hud" class="hud"></div>
+      <div id="force-hud"  class="hud"></div>
+    </div>
+  </div>
+
+  <!-- Playback controls -->
+  <div id="controls">
+    <button class="ctrl-btn" id="btn-first" title="最初のフレーム [Home]"  disabled>⏮</button>
+    <button class="ctrl-btn" id="btn-prev"  title="前のフレーム [←]"      disabled>⏪</button>
+    <button class="ctrl-btn" id="btn-play"  title="再生/停止 [Space]"      disabled>▶</button>
+    <button class="ctrl-btn" id="btn-next"  title="次のフレーム [→]"       disabled>⏩</button>
+    <button class="ctrl-btn" id="btn-last"  title="最後のフレーム [End]"   disabled>⏭</button>
+    <input type="range" id="frame-slider" min="0" max="0" value="0" disabled>
+    <span id="frame-counter">-- / --</span>
+    <div class="speed-wrap">
+      速度
+      <input type="range" id="speed-slider" min="1" max="60" value="10">
+      <span id="speed-val">10 fps</span>
+    </div>
+  </div>
+
+  <!-- Three.js via importmap (CDN) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three":          "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+      "three/addons/":  "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="./js/viewer.js"></script>
+</body>
+</html>

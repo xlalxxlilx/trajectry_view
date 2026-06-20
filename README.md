@@ -70,6 +70,23 @@ cd /home/aimase/Documents/vscode/trajectry_view
 ./start.sh
 ```
 
+### 方法3: Python不要版 (Pyodide + ASE)
+
+ブラウザ内 Python (Pyodide) で ASE を実行する版を追加しています。
+
+- エントリ: `web_pyodide/index.html`
+- サーバーAPI不要（`app.py` は使いません）
+
+注意:
+
+- 初回は Pyodide と ASE のロードで時間がかかります
+- ファイル形式の解釈はブラウザ内 ASE に依存します
+
+最小手順:
+
+1. `web_pyodide/index.html` をブラウザで開く
+2. もしくは任意の静的サーバーで `web_pyodide/` を配信して開く
+
 ## 使い方
 
 1. 画面上部の「ファイルを開く」またはドラッグ＆ドロップでファイルを読み込み
@@ -97,6 +114,10 @@ trajectry_view/
 ├── app.py
 ├── requirements.txt
 ├── start.sh
+├── web_pyodide/
+│   ├── index.html
+│   └── js/
+│       └── viewer.js
 └── static/
     ├── index.html
     └── js/
@@ -105,4 +126,4 @@ trajectry_view/
 
 ## ライセンス
 
-MIT
+必要に応じて追記してください。
