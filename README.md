@@ -36,7 +36,7 @@ ASE が対応する形式を利用できます。代表例は以下です。
 ## セットアップ
 
 ```bash
-cd /home/aimase/Documents/vscode/trajectry_view
+cd /home/username/path/to/trajectry_view
 python3 -m pip install -r requirements.txt
 ```
 
@@ -53,7 +53,7 @@ python3 -m pip install -r requirements.txt --break-system-packages
 ### 方法1: 直接起動
 
 ```bash
-cd /home/aimase/Documents/vscode/trajectry_view
+cd /home/username/path/to/trajectry_view
 python3 app.py
 ```
 
@@ -66,7 +66,7 @@ python3 app.py
 `start.sh` を使って起動できます。
 
 ```bash
-cd /home/aimase/Documents/vscode/trajectry_view
+cd /home/username/path/to/trajectry_view
 ./start.sh
 ```
 
